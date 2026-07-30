@@ -1,0 +1,16 @@
+[Unit]
+Description=DouyinSparkPanel (DouYinSparkFlow 二开控制面板)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/DouyinSparkPanel/panel
+Environment=SPARKFLOW_DIR=/opt/DouyinSparkPanel
+EnvironmentFile=/opt/DouyinSparkPanel/panel/.env
+ExecStart=/usr/bin/python3 -m uvicorn app:app --host 127.0.0.1 --port 8771
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

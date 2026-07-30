@@ -1,0 +1,14 @@
+.venv/
+**/__pycache__/
+*.py[cod]
+.vscode/
+.idea/
+chrome/
+logs/
+.DS_Store
+usersData.json
+.env
+.env.bak*
+panel/.env
+*.log
+.playwright/
