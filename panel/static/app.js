@@ -130,7 +130,7 @@ function renderAccounts() {
                    value="${escapeHtml(account.unique_id)}" />
           </label>
         </div>
-        <label class="field" style="margin-top:16px">
+        <label class="field mt">
           <span>续火好友（每行一个，共 ${account.targets.length} 个）</span>
           <textarea rows="6" data-acc="${index}" data-acc-field="targets"
           >${escapeHtml(account.targets.join('\n'))}</textarea>
@@ -144,15 +144,30 @@ function renderStats() {
   const account = state.accounts[0];
   const health = account?.cookies || {};
   const cookieEl = $('#stat-cookie');
+  const dotCookie = $('#dot-cookie');
+  const dotLast = $('#dot-last');
+
+  const setDot = (el, kind) => {
+    if (!el) return;
+    el.className = `dot ${kind || ''}`.trim();
+  };
+
   if (!health.has_sessionid) {
     cookieEl.textContent = '失效';
     cookieEl.style.color = 'var(--danger)';
-  } else if (health.days_left !== null && health.days_left < 0) {
+    setDot(dotCookie, 'err');
+  } else if (health.days_left !== null && health.days_left !== undefined && health.days_left < 0) {
     cookieEl.textContent = '已过期';
     cookieEl.style.color = 'var(--danger)';
+    setDot(dotCookie, 'err');
+  } else if (health.days_left !== null && health.days_left !== undefined && health.days_left < 7) {
+    cookieEl.textContent = `剩 ${health.days_left} 天`;
+    cookieEl.style.color = 'var(--warn)';
+    setDot(dotCookie, 'warn');
   } else {
-    cookieEl.textContent = '正常';
+    cookieEl.textContent = health.days_left != null ? `剩 ${health.days_left} 天` : '正常';
     cookieEl.style.color = 'var(--accent)';
+    setDot(dotCookie, 'ok');
   }
 
   $('#stat-targets').textContent = account ? account.targets.length : '—';
@@ -163,6 +178,11 @@ function renderStats() {
     detail.push(`到期 ${new Date(health.expires_at * 1000).toLocaleString('zh-CN')}`);
   }
   $('#cookie-detail').textContent = detail.join(' · ') || '尚未配置 Cookie';
+
+  // keep last-run dot in sync if already rendered
+  if (dotLast && !dotLast.className.includes('ok') && !dotLast.className.includes('err')) {
+    setDot(dotLast, 'soft');
+  }
 }
 
 async function loadConfig() {
@@ -298,11 +318,16 @@ async function loadRuns() {
   $('#cron-spec').textContent = data.schedule || '未配置';
 
   const runs = data.runs || [];
+  const lastOk = runs.length ? runs[0].status === 'Success' : null;
   $('#stat-last').textContent = runs.length
-    ? (runs[0].status === 'Success' ? '成功' : '失败')
+    ? (lastOk ? '成功' : '失败')
     : '—';
-  $('#stat-last').style.color = runs.length && runs[0].status !== 'Success'
+  $('#stat-last').style.color = lastOk === false
     ? 'var(--danger)' : 'var(--accent)';
+  const dotLast = $('#dot-last');
+  if (dotLast) {
+    dotLast.className = `dot ${lastOk === false ? 'err' : (lastOk ? 'ok' : 'soft')}`;
+  }
 
   $('#runs').innerHTML = runs.length ? runs.map((run) => {
     const ok = run.status === 'Success';

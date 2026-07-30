@@ -4,71 +4,124 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>DouyinSparkPanel</title>
-  <link rel="stylesheet" href="./styles.css?v=8" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./styles.css?v=10" />
 </head>
 <body>
+  <div class="bg-orbs" aria-hidden="true">
+    <span class="orb orb-a"></span>
+    <span class="orb orb-b"></span>
+    <span class="orb orb-c"></span>
+  </div>
+
+  <!-- 登录门 -->
   <div id="gate" class="gate">
-    <form id="login-form" class="gate-card">
+    <form id="login-form" class="gate-card glass">
+      <div class="brand-mark">DS</div>
       <p class="eyebrow">DouyinSparkPanel</p>
       <h1>续火控制台</h1>
-      <p class="gate-hint">请输入面板密码</p>
-      <input id="password" type="password" autocomplete="current-password" placeholder="面板密码" />
-      <button type="submit" class="primary-button">进入</button>
+      <p class="gate-hint">输入面板密码进入管理界面</p>
+      <label class="field">
+        <span>访问密码</span>
+        <input id="password" type="password" autocomplete="current-password" placeholder="PANEL_PASSWORD" />
+      </label>
+      <button type="submit" class="primary-button full">进入面板</button>
       <p id="login-error" class="gate-error"></p>
+      <p class="gate-foot">DouYinSparkFlow 二开 · 自托管运维</p>
     </form>
   </div>
 
   <main id="app" class="shell" hidden>
-    <section class="hero">
-      <div class="hero-panel">
-        <p class="eyebrow">Remote Config Studio</p>
-        <h1>续火控制台</h1>
-        <p>粘贴 Cookie 即可写入 <code class="inline">项目根目录 /.env</code>，配置直接落盘。</p>
-        <div class="hero-stats">
-          <div class="stat"><strong id="stat-cookie">—</strong><span>Cookie 状态</span></div>
-          <div class="stat"><strong id="stat-targets">—</strong><span>续火好友</span></div>
-          <div class="stat"><strong id="stat-last">—</strong><span>上次运行</span></div>
+    <!-- 顶栏 -->
+    <header class="topbar glass">
+      <div class="brand">
+        <div class="brand-mark sm">DS</div>
+        <div>
+          <strong>DouyinSparkPanel</strong>
+          <span>火花续火控制台</span>
         </div>
       </div>
-      <aside class="preview-panel">
-        <div>
-          <p class="preview-label">定时任务</p>
-          <p class="cron-spec" id="cron-spec">—</p>
-          <p class="note" id="cookie-detail">读取中…</p>
+      <div class="top-actions">
+        <button id="run-now" class="primary-button">立即执行</button>
+        <button id="logout" class="ghost-button">退出</button>
+      </div>
+    </header>
+
+    <!-- 状态总览 -->
+    <section class="hero-grid">
+      <article class="glass hero-card">
+        <p class="eyebrow">Overview</p>
+        <h1>今日续火状态</h1>
+        <p class="hero-copy">配置与 Cookie 直接写入项目 <code class="inline">.env</code>，定时任务与一键执行共用同一套设置。</p>
+        <div class="pill-row">
+          <div class="status-pill">
+            <span class="dot" id="dot-cookie"></span>
+            <div>
+              <small>Cookie</small>
+              <strong id="stat-cookie">—</strong>
+            </div>
+          </div>
+          <div class="status-pill">
+            <span class="dot soft"></span>
+            <div>
+              <small>续火好友</small>
+              <strong id="stat-targets">—</strong>
+            </div>
+          </div>
+          <div class="status-pill">
+            <span class="dot" id="dot-last"></span>
+            <div>
+              <small>上次运行</small>
+              <strong id="stat-last">—</strong>
+            </div>
+          </div>
         </div>
-        <div class="side-actions">
-          <button id="run-now" class="primary-button">立即执行一次</button>
-          <button id="logout" class="ghost-button">退出登录</button>
+      </article>
+
+      <article class="glass side-card">
+        <p class="preview-label">Schedule</p>
+        <h2 class="cron-spec" id="cron-spec">—</h2>
+        <p class="note" id="cookie-detail">读取中…</p>
+        <div class="mini-legend">
+          <span><i class="lg ok"></i>正常</span>
+          <span><i class="lg warn"></i>将过期</span>
+          <span><i class="lg err"></i>失效</span>
         </div>
-      </aside>
+      </article>
     </section>
 
     <div class="layout">
       <div class="stack">
-        <section class="section">
+        <!-- Cookie -->
+        <section class="glass section">
           <div class="section-head">
             <div>
+              <p class="eyebrow">Auth</p>
               <h3>更新 Cookie</h3>
-              <p>本机浏览器登录抖音后，用 Cookie-Editor 导出 JSON 粘贴到这里</p>
+              <p>本机登录抖音后，用 Cookie-Editor 导出 JSON</p>
             </div>
             <button id="import-cookies" class="primary-button">写入 Cookie</button>
           </div>
           <label class="field">
             <span>Cookie JSON</span>
-            <textarea id="cookie-paste" rows="10" placeholder='[{"name":"sessionid","value":"...","domain":".douyin.com"}, ...]'></textarea>
+            <textarea id="cookie-paste" rows="9" placeholder='[{"name":"sessionid","value":"...","domain":".douyin.com"}, ...]'></textarea>
           </label>
-          <p class="note">
-            1. 电脑浏览器打开 <code class="inline">https://www.douyin.com</code> 并登录<br>
-            2. Cookie-Editor 扩展 → Export → JSON<br>
-            3. 整段粘贴（多行也可以）→ 写入 Cookie
-          </p>
+          <div class="steps">
+            <div class="step"><b>1</b><span>打开 douyin.com 并登录</span></div>
+            <div class="step"><b>2</b><span>Cookie-Editor → Export → JSON</span></div>
+            <div class="step"><b>3</b><span>粘贴后点写入</span></div>
+          </div>
         </section>
 
-        <section class="section">
+        <!-- 飞书 -->
+        <section class="glass section">
           <div class="section-head">
             <div>
+              <p class="eyebrow">Notify</p>
               <h3>飞书通知</h3>
-              <p>运行结束后推送结果卡片（自定义机器人 Webhook）</p>
+              <p>运行结束后推送结果卡片</p>
             </div>
             <div class="side-actions">
               <button id="save-notify" class="primary-button">保存</button>
@@ -76,17 +129,19 @@
             </div>
           </div>
           <label class="field">
-            <span>飞书 Webhook</span>
+            <span>Webhook URL</span>
             <input id="feishu-webhook" type="url" placeholder="https://open.feishu.cn/open-apis/bot/v2/hook/..." />
           </label>
-          <p class="note">定时任务与「立即执行」结束后都会自动推送。留空则不发送。</p>
+          <p class="note">定时任务与「立即执行」结束后自动推送；留空则关闭通知。</p>
         </section>
 
-        <section class="section">
+        <!-- 基础配置 -->
+        <section class="glass section">
           <div class="section-head">
             <div>
+              <p class="eyebrow">Config</p>
               <h3>基础配置</h3>
-              <p>保存后写入 .env，下次任务执行时生效</p>
+              <p>保存后写入 .env，下次任务生效</p>
             </div>
             <button id="save-config" class="primary-button">保存配置</button>
           </div>
@@ -118,30 +173,34 @@
               <input type="number" data-field="taskRetryTimes" min="0" max="10" />
             </label>
           </div>
-          <label class="field" style="margin-top:16px">
-            <span>消息模板（<code class="inline">[API]</code> 会替换为每日一言）</span>
+          <label class="field mt">
+            <span>消息模板（<code class="inline">[API]</code> = 每日一言）</span>
             <textarea rows="3" data-field="messageTemplate"></textarea>
           </label>
-          <div class="field" style="margin-top:16px">
+          <div class="field mt">
             <span>一言类型</span>
             <div id="hitokoto-options" class="choice-grid"></div>
           </div>
         </section>
 
-        <section class="section">
+        <!-- 账号 -->
+        <section class="glass section">
           <div class="section-head">
             <div>
+              <p class="eyebrow">Targets</p>
               <h3>账号与续火好友</h3>
-              <p>每行一个昵称或抖音号，取决于上方匹配模式</p>
+              <p>每行一个昵称或抖音号</p>
             </div>
           </div>
           <div id="accounts"></div>
         </section>
       </div>
 
-      <aside class="section output-panel">
+      <!-- 日志 -->
+      <aside class="glass section output-panel">
         <div class="section-head">
           <div>
+            <p class="eyebrow">Runtime</p>
             <h3>运行日志</h3>
             <p>近期执行记录</p>
           </div>
@@ -151,9 +210,15 @@
         <div id="log-blocks" class="log-blocks"></div>
       </aside>
     </div>
+
+    <footer class="foot">
+      <span>DouyinSparkPanel</span>
+      <span class="sep">·</span>
+      <span>DouYinSparkFlow 二开</span>
+    </footer>
   </main>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="./app.js?v=8"></script>
+  <script type="module" src="./app.js?v=10"></script>
 </body>
 </html>
