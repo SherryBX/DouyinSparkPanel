@@ -3,12 +3,25 @@ const HITOKOTO_TYPES = [
   '影视', '诗词', '网易云', '哲学', '抖机灵', '其他',
 ];
 
+const TAB_META = {
+  overview: { title: '总览', kicker: 'Overview' },
+  friends: { title: '续火好友', kicker: 'Targets' },
+  cookie: { title: 'Cookie', kicker: 'Auth' },
+  config: { title: '基础配置', kicker: 'Config' },
+  notify: { title: '飞书通知', kicker: 'Notify' },
+  logs: { title: '运行日志', kicker: 'Runtime' },
+};
+
 const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => [...document.querySelectorAll(sel)];
 const gate = $('#gate');
 const app = $('#app');
 
 let state = { settings: {}, accounts: [] };
+/** @type {{name:string, enabled:boolean}[]} */
+let friends = [];
 let runTimer = null;
+let currentTab = 'overview';
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -41,7 +54,6 @@ async function api(path, options = {}) {
 }
 
 function showGate() {
-  gate.hidden = true;
   gate.hidden = false;
   app.hidden = true;
   document.body.style.overflow = 'hidden';
@@ -54,12 +66,33 @@ function showApp() {
   document.body.style.overflow = '';
 }
 
-function currentUniqueId() {
-  const account = state.accounts[0];
-  return account?.unique_id
-    || document.querySelector('[data-acc-field="unique_id"]')?.value?.trim()
-    || '';
+function currentAccount() {
+  return state.accounts[0] || { username: '', unique_id: '', targets: [], cookies: {} };
 }
+
+function currentUniqueId() {
+  return ($('#acc-unique-id')?.value || currentAccount().unique_id || '').trim();
+}
+
+function switchTab(tab) {
+  currentTab = tab;
+  $$('.nav-item').forEach((el) => el.classList.toggle('active', el.dataset.tab === tab));
+  $$('.tab-panel').forEach((el) => el.classList.toggle('active', el.dataset.panel === tab));
+  const meta = TAB_META[tab] || TAB_META.overview;
+  $('#page-title').textContent = meta.title;
+  $('#page-kicker').textContent = meta.kicker;
+}
+
+$('#main-nav').addEventListener('click', (event) => {
+  const btn = event.target.closest('[data-tab]');
+  if (!btn) return;
+  switchTab(btn.dataset.tab);
+});
+
+document.addEventListener('click', (event) => {
+  const go = event.target.closest('[data-go]');
+  if (go) switchTab(go.dataset.go);
+});
 
 $('#login-form').addEventListener('submit', async (event) => {
   event.preventDefault();
@@ -72,14 +105,15 @@ $('#login-form').addEventListener('submit', async (event) => {
     });
     $('#password').value = '';
     showApp();
-    await Promise.all([loadConfig(), loadNotify(), loadRuns(), loadLogs()]);
+    await refreshAll();
+    switchTab('overview');
   } catch (err) {
     error.textContent = err.message;
   }
 });
 
 $('#logout').addEventListener('click', async () => {
-  try { await api('/api/logout', { method: 'POST' }); } catch { /* 忽略 */ }
+  try { await api('/api/logout', { method: 'POST' }); } catch { /* ignore */ }
   showGate();
 });
 
@@ -92,135 +126,240 @@ function renderHitokoto(selected) {
     </label>`).join('');
 }
 
-function renderAccounts() {
-  const html = state.accounts.map((account, index) => {
-    const health = account.cookies || {};
-    let badge = '<span class="badge err">无 Cookie</span>';
-    if (health.has_sessionid) {
-      const days = health.days_left;
-      if (days === null || days === undefined) {
-        badge = `<span class="badge ok">${health.count} 条 Cookie</span>`;
-      } else if (days < 0) {
-        badge = `<span class="badge err">已过期 ${Math.abs(days)} 天</span>`;
-      } else if (days < 7) {
-        badge = `<span class="badge warn">剩 ${days} 天</span>`;
-      } else {
-        badge = `<span class="badge ok">剩 ${days} 天</span>`;
-      }
-    }
-    return `
-      <div class="account-card">
-        <div class="account-head">
-          <div>
-            <p class="eyebrow">Account ${String(index + 1).padStart(2, '0')}</p>
-            <h3>${escapeHtml(account.username || '未命名')}</h3>
-            <p><code class="inline">${escapeHtml(account.cookies_key)}</code></p>
-          </div>
-          ${badge}
-        </div>
-        <div class="grid two">
-          <label class="field">
-            <span>用户名（仅用于标识）</span>
-            <input data-acc="${index}" data-acc-field="username"
-                   value="${escapeHtml(account.username)}" />
-          </label>
-          <label class="field">
-            <span>unique_id（决定 Cookie 变量名）</span>
-            <input data-acc="${index}" data-acc-field="unique_id"
-                   value="${escapeHtml(account.unique_id)}" />
-          </label>
-        </div>
-        <label class="field mt">
-          <span>续火好友（每行一个，共 ${account.targets.length} 个）</span>
-          <textarea rows="6" data-acc="${index}" data-acc-field="targets"
-          >${escapeHtml(account.targets.join('\n'))}</textarea>
-        </label>
-      </div>`;
-  }).join('');
-  $('#accounts').innerHTML = html || '<p class="empty">配置里还没有账号。</p>';
+function normalizeFriendName(name) {
+  return String(name || '').trim();
 }
 
-function renderStats() {
-  const account = state.accounts[0];
-  const health = account?.cookies || {};
-  const cookieEl = $('#stat-cookie');
-  const dotCookie = $('#dot-cookie');
-  const dotLast = $('#dot-last');
+function loadFriendsFromAccount(account) {
+  const targets = account?.targets || [];
+  friends = targets
+    .map((name) => normalizeFriendName(name))
+    .filter(Boolean)
+    .map((name) => ({ name, enabled: true }));
+}
 
-  const setDot = (el, kind) => {
-    if (!el) return;
-    el.className = `dot ${kind || ''}`.trim();
-  };
+function selectedNames() {
+  return friends.filter((f) => f.enabled).map((f) => f.name);
+}
 
-  if (!health.has_sessionid) {
-    cookieEl.textContent = '失效';
-    cookieEl.style.color = 'var(--danger)';
-    setDot(dotCookie, 'err');
-  } else if (health.days_left !== null && health.days_left !== undefined && health.days_left < 0) {
-    cookieEl.textContent = '已过期';
-    cookieEl.style.color = 'var(--danger)';
-    setDot(dotCookie, 'err');
-  } else if (health.days_left !== null && health.days_left !== undefined && health.days_left < 7) {
-    cookieEl.textContent = `剩 ${health.days_left} 天`;
-    cookieEl.style.color = 'var(--warn)';
-    setDot(dotCookie, 'warn');
+function renderFriends() {
+  const filter = ($('#friend-filter')?.value || '').trim().toLowerCase();
+  const list = $('#friend-list');
+  const empty = $('#friend-empty');
+  const visible = friends.filter((f) => !filter || f.name.toLowerCase().includes(filter));
+
+  $('#friend-total').textContent = String(friends.length);
+  $('#friend-selected').textContent = String(selectedNames().length);
+  $('#nav-friend-count').textContent = String(selectedNames().length);
+  $('#stat-targets').textContent = String(selectedNames().length);
+
+  if (!visible.length) {
+    list.innerHTML = '';
+    empty.hidden = false;
+    empty.textContent = friends.length ? '没有匹配的好友' : '还没有好友，在上方添加后勾选即可。';
+    return;
+  }
+  empty.hidden = true;
+  list.innerHTML = visible.map((friend) => {
+    const idx = friends.findIndex((f) => f.name === friend.name);
+    const initial = escapeHtml((friend.name || '?').slice(0, 1).toUpperCase());
+    return `
+      <label class="friend-item ${friend.enabled ? 'active' : ''}" data-idx="${idx}">
+        <input type="checkbox" data-friend-check="${idx}" ${friend.enabled ? 'checked' : ''} />
+        <div class="meta">
+          <div class="name">${escapeHtml(friend.name)}</div>
+          <div class="sub">${friend.enabled ? '续火中' : '未选中'} · ${initial}</div>
+        </div>
+        <button type="button" class="remove" data-friend-del="${idx}" title="删除">×</button>
+      </label>`;
+  }).join('');
+}
+
+function addFriend(rawName) {
+  const name = normalizeFriendName(rawName);
+  if (!name) {
+    showToast('请输入好友昵称或抖音号');
+    return;
+  }
+  if (friends.some((f) => f.name === name)) {
+    // 已存在则勾选
+    friends = friends.map((f) => f.name === name ? { ...f, enabled: true } : f);
+    showToast('该好友已在列表中，已勾选');
   } else {
-    cookieEl.textContent = health.days_left != null ? `剩 ${health.days_left} 天` : '正常';
-    cookieEl.style.color = 'var(--accent)';
-    setDot(dotCookie, 'ok');
+    friends = [{ name, enabled: true }, ...friends];
+    showToast(`已添加 ${name}`);
+  }
+  $('#friend-input').value = '';
+  renderFriends();
+  renderStats();
+}
+
+$('#friend-add').addEventListener('click', () => addFriend($('#friend-input').value));
+$('#friend-input').addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    addFriend($('#friend-input').value);
+  }
+});
+$('#friend-filter').addEventListener('input', renderFriends);
+
+$('#friend-list').addEventListener('click', (event) => {
+  const del = event.target.closest('[data-friend-del]');
+  if (del) {
+    event.preventDefault();
+    event.stopPropagation();
+    const idx = Number(del.dataset.friendDel);
+    const name = friends[idx]?.name;
+    friends = friends.filter((_, i) => i !== idx);
+    renderFriends();
+    renderStats();
+    showToast(name ? `已删除 ${name}` : '已删除');
+    return;
+  }
+});
+
+$('#friend-list').addEventListener('change', (event) => {
+  const box = event.target.closest('[data-friend-check]');
+  if (!box) return;
+  const idx = Number(box.dataset.friendCheck);
+  if (!friends[idx]) return;
+  friends[idx] = { ...friends[idx], enabled: box.checked };
+  renderFriends();
+  renderStats();
+});
+
+$('#friend-select-all').addEventListener('click', () => {
+  friends = friends.map((f) => ({ ...f, enabled: true }));
+  renderFriends();
+  renderStats();
+});
+$('#friend-select-none').addEventListener('click', () => {
+  friends = friends.map((f) => ({ ...f, enabled: false }));
+  renderFriends();
+  renderStats();
+});
+$('#friend-remove-checked').addEventListener('click', () => {
+  const before = friends.length;
+  friends = friends.filter((f) => !f.enabled);
+  renderFriends();
+  renderStats();
+  showToast(`已删除 ${before - friends.length} 人`);
+});
+
+async function saveFriends() {
+  const username = ($('#acc-username').value || '').trim() || currentAccount().username || 'Sherry';
+  const uniqueId = currentUniqueId();
+  if (!uniqueId) {
+    showToast('请先填写 unique_id');
+    return;
+  }
+  const settings = { ...(state.settings || {}) };
+  // 保留当前表单里的基础配置值
+  for (const el of $$('[data-field]')) {
+    settings[el.dataset.field] = el.value;
+  }
+  settings.hitokotoTypes = $$('#hitokoto-options input:checked').map((el) => el.value);
+
+  const accounts = [{
+    username,
+    unique_id: uniqueId,
+    targets: selectedNames(),
+  }];
+
+  const button = $('#save-friends');
+  button.disabled = true;
+  try {
+    const res = await api('/api/config', {
+      method: 'PUT',
+      body: JSON.stringify({ settings, accounts }),
+    });
+    showToast(`已保存 ${selectedNames().length} 个续火好友`);
+    await loadConfig();
+  } catch (err) {
+    showToast(`保存失败：${err.message}`);
+  } finally {
+    button.disabled = false;
+  }
+}
+$('#save-friends').addEventListener('click', saveFriends);
+
+function renderStats() {
+  const account = currentAccount();
+  const health = account.cookies || {};
+  const cookieEl = $('#stat-cookie');
+  const ovCookie = $('#ov-cookie');
+  const setDot = (el, kind) => { if (el) el.className = `dot ${kind || ''}`.trim(); };
+
+  let cookieText = '—';
+  let cookieKind = 'soft';
+  let cookieColor = 'var(--text)';
+  if (!health.has_sessionid) {
+    cookieText = '失效'; cookieKind = 'err'; cookieColor = 'var(--danger)';
+  } else if (health.days_left != null && health.days_left < 0) {
+    cookieText = '已过期'; cookieKind = 'err'; cookieColor = 'var(--danger)';
+  } else if (health.days_left != null && health.days_left < 7) {
+    cookieText = `剩 ${health.days_left} 天`; cookieKind = 'warn'; cookieColor = 'var(--warn)';
+  } else if (health.days_left != null) {
+    cookieText = `剩 ${health.days_left} 天`; cookieKind = 'ok'; cookieColor = 'var(--accent)';
+  } else {
+    cookieText = '正常'; cookieKind = 'ok'; cookieColor = 'var(--accent)';
   }
 
-  $('#stat-targets').textContent = account ? account.targets.length : '—';
+  cookieEl.textContent = cookieText;
+  cookieEl.style.color = cookieColor;
+  ovCookie.textContent = cookieText;
+  ovCookie.style.color = cookieColor;
+  setDot($('#dot-cookie'), cookieKind);
+
+  const selected = selectedNames().length || (account.targets || []).length;
+  $('#stat-targets').textContent = String(selected);
+  $('#nav-friend-count').textContent = String(selected);
 
   const detail = [];
   if (health.count) detail.push(`${health.count} 条 Cookie`);
-  if (health.expires_at) {
-    detail.push(`到期 ${new Date(health.expires_at * 1000).toLocaleString('zh-CN')}`);
-  }
+  if (health.expires_at) detail.push(`到期 ${new Date(health.expires_at * 1000).toLocaleString('zh-CN')}`);
   $('#cookie-detail').textContent = detail.join(' · ') || '尚未配置 Cookie';
-
-  // keep last-run dot in sync if already rendered
-  if (dotLast && !dotLast.className.includes('ok') && !dotLast.className.includes('err')) {
-    setDot(dotLast, 'soft');
-  }
 }
 
 async function loadConfig() {
   const data = await api('/api/config');
   state = data;
   const settings = data.settings || {};
+  const account = currentAccount();
 
-  for (const el of document.querySelectorAll('[data-field]')) {
+  for (const el of $$('[data-field]')) {
     const key = el.dataset.field;
     if (settings[key] !== undefined) el.value = settings[key];
   }
 
+  $('#acc-username').value = account.username || '';
+  $('#acc-unique-id').value = account.unique_id || '';
+
   let types = [];
   try { types = JSON.parse(settings.hitokotoTypes || '[]'); } catch { types = []; }
   renderHitokoto(types);
-  renderAccounts();
+  loadFriendsFromAccount(account);
+  renderFriends();
   renderStats();
 }
 
 $('#save-config').addEventListener('click', async () => {
   const settings = {};
-  for (const el of document.querySelectorAll('[data-field]')) {
-    settings[el.dataset.field] = el.value;
-  }
-  settings.hitokotoTypes = [...document.querySelectorAll('#hitokoto-options input:checked')]
-    .map((el) => el.value);
+  for (const el of $$('[data-field]')) settings[el.dataset.field] = el.value;
+  settings.hitokotoTypes = $$('#hitokoto-options input:checked').map((el) => el.value);
 
-  const accounts = state.accounts.map((account, index) => {
-    const read = (field) => {
-      const el = document.querySelector(`[data-acc="${index}"][data-acc-field="${field}"]`);
-      return el ? el.value : '';
-    };
-    return {
-      username: read('username').trim(),
-      unique_id: read('unique_id').trim(),
-      targets: read('targets').split(/\r?\n|,/).map((t) => t.trim()).filter(Boolean),
-    };
-  });
+  const username = ($('#acc-username').value || '').trim() || currentAccount().username || 'Sherry';
+  const uniqueId = currentUniqueId() || currentAccount().unique_id;
+  if (!uniqueId) {
+    showToast('请先填写 unique_id');
+    return;
+  }
+
+  const accounts = [{
+    username,
+    unique_id: uniqueId,
+    targets: selectedNames().length ? selectedNames() : (currentAccount().targets || []),
+  }];
 
   const button = $('#save-config');
   button.disabled = true;
@@ -229,7 +368,7 @@ $('#save-config').addEventListener('click', async () => {
       method: 'PUT',
       body: JSON.stringify({ settings, accounts }),
     });
-    showToast(`已保存 ${res.updated.length} 项，备份 ${res.backup.split('/').pop()}`);
+    showToast(`已保存 ${res.updated.length} 项配置`);
     await loadConfig();
   } catch (err) {
     showToast(`保存失败：${err.message}`);
@@ -241,15 +380,8 @@ $('#save-config').addEventListener('click', async () => {
 $('#import-cookies').addEventListener('click', async () => {
   const uniqueId = currentUniqueId();
   const raw = $('#cookie-paste').value.trim();
-  if (!uniqueId) {
-    showToast('请先填写 unique_id');
-    return;
-  }
-  if (!raw) {
-    showToast('请粘贴 Cookie JSON');
-    return;
-  }
-
+  if (!uniqueId) { showToast('请先在好友页填写 unique_id'); return; }
+  if (!raw) { showToast('请粘贴 Cookie JSON'); return; }
   const button = $('#import-cookies');
   button.disabled = true;
   try {
@@ -268,8 +400,6 @@ $('#import-cookies').addEventListener('click', async () => {
     button.disabled = false;
   }
 });
-
-// --------------------------------------------------------------------- 飞书通知
 
 async function loadNotify() {
   const data = await api('/api/notify');
@@ -296,7 +426,6 @@ $('#test-notify').addEventListener('click', async () => {
   const button = $('#test-notify');
   button.disabled = true;
   try {
-    // 先保存当前输入，避免测到旧值
     const fw = $('#feishu-webhook').value.trim();
     if (fw) {
       await api('/api/notify', {
@@ -313,23 +442,10 @@ $('#test-notify').addEventListener('click', async () => {
   }
 });
 
-async function loadRuns() {
-  const data = await api('/api/runs');
-  $('#cron-spec').textContent = data.schedule || '未配置';
-
-  const runs = data.runs || [];
-  const lastOk = runs.length ? runs[0].status === 'Success' : null;
-  $('#stat-last').textContent = runs.length
-    ? (lastOk ? '成功' : '失败')
-    : '—';
-  $('#stat-last').style.color = lastOk === false
-    ? 'var(--danger)' : 'var(--accent)';
-  const dotLast = $('#dot-last');
-  if (dotLast) {
-    dotLast.className = `dot ${lastOk === false ? 'err' : (lastOk ? 'ok' : 'soft')}`;
-  }
-
-  $('#runs').innerHTML = runs.length ? runs.map((run) => {
+function renderRunRows(targetSel, runs) {
+  const el = $(targetSel);
+  if (!el) return;
+  el.innerHTML = runs.length ? runs.map((run) => {
     const ok = run.status === 'Success';
     const when = String(run.start_time).replace('T', ' ').slice(0, 19);
     return `<div class="run-row">
@@ -338,6 +454,26 @@ async function loadRuns() {
       <span class="badge ${ok ? 'ok' : 'err'}">${ok ? '成功' : escapeHtml(run.message || '失败')}</span>
     </div>`;
   }).join('') : '<p class="empty">暂无运行记录。</p>';
+}
+
+async function loadRuns() {
+  const data = await api('/api/runs');
+  const schedule = data.schedule || '未配置';
+  $('#cron-spec').textContent = schedule;
+  $('#ov-cron').textContent = schedule;
+
+  const runs = data.runs || [];
+  const lastOk = runs.length ? runs[0].status === 'Success' : null;
+  const lastText = runs.length ? (lastOk ? '成功' : '失败') : '—';
+  $('#stat-last').textContent = lastText;
+  $('#ov-last').textContent = lastText;
+  $('#stat-last').style.color = lastOk === false ? 'var(--danger)' : 'var(--accent)';
+  $('#ov-last').style.color = lastOk === false ? 'var(--danger)' : 'var(--accent)';
+  const dotLast = $('#dot-last');
+  if (dotLast) dotLast.className = `dot ${lastOk === false ? 'err' : (lastOk ? 'ok' : 'soft')}`;
+
+  renderRunRows('#runs', runs);
+  renderRunRows('#runs-overview', runs.slice(0, 4));
 }
 
 async function loadLogs() {
@@ -382,26 +518,27 @@ $('#run-now').addEventListener('click', async () => {
 
 async function pollRun() {
   let data;
-  try {
-    data = await api('/api/run');
-  } catch {
-    clearInterval(runTimer);
-    return;
-  }
+  try { data = await api('/api/run'); }
+  catch { clearInterval(runTimer); return; }
   if (!data.running) {
     clearInterval(runTimer);
     runTimer = null;
     $('#run-now').disabled = false;
     showToast(data.returncode === 0 ? '执行成功' : `执行失败（退出码 ${data.returncode}）`);
-    await Promise.all([loadRuns(), loadLogs(), loadConfig()]);
+    await refreshAll();
   }
+}
+
+async function refreshAll() {
+  await Promise.all([loadConfig(), loadNotify(), loadRuns(), loadLogs()]);
 }
 
 (async function bootstrap() {
   try {
     await api('/api/me');
     showApp();
-    await Promise.all([loadConfig(), loadNotify(), loadRuns(), loadLogs()]);
+    await refreshAll();
+    switchTab('overview');
   } catch {
     showGate();
   }

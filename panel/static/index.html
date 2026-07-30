@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css?v=10" />
+  <link rel="stylesheet" href="./styles.css?v=20" />
 </head>
 <body>
   <div class="bg-orbs" aria-hidden="true">
@@ -16,7 +16,6 @@
     <span class="orb orb-c"></span>
   </div>
 
-  <!-- 登录门 -->
   <div id="gate" class="gate">
     <form id="login-form" class="gate-card glass">
       <div class="brand-mark">DS</div>
@@ -33,115 +32,200 @@
     </form>
   </div>
 
-  <main id="app" class="shell" hidden>
-    <!-- 顶栏 -->
-    <header class="topbar glass">
-      <div class="brand">
+  <div id="app" class="app-shell" hidden>
+    <aside class="sidebar glass">
+      <div class="sidebar-brand">
         <div class="brand-mark sm">DS</div>
         <div>
           <strong>DouyinSparkPanel</strong>
-          <span>火花续火控制台</span>
+          <span>火花续火</span>
         </div>
       </div>
-      <div class="top-actions">
-        <button id="run-now" class="primary-button">立即执行</button>
-        <button id="logout" class="ghost-button">退出</button>
+
+      <nav class="nav" id="main-nav">
+        <button type="button" class="nav-item active" data-tab="overview">
+          <span class="nav-ico">◈</span><span>总览</span>
+        </button>
+        <button type="button" class="nav-item" data-tab="friends">
+          <span class="nav-ico">◎</span><span>好友</span>
+          <em id="nav-friend-count" class="nav-count">0</em>
+        </button>
+        <button type="button" class="nav-item" data-tab="cookie">
+          <span class="nav-ico">◍</span><span>Cookie</span>
+        </button>
+        <button type="button" class="nav-item" data-tab="config">
+          <span class="nav-ico">⚙</span><span>配置</span>
+        </button>
+        <button type="button" class="nav-item" data-tab="notify">
+          <span class="nav-ico">✉</span><span>通知</span>
+        </button>
+        <button type="button" class="nav-item" data-tab="logs">
+          <span class="nav-ico">☰</span><span>日志</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-foot">
+        <button id="run-now" class="primary-button full">立即执行</button>
+        <button id="logout" class="ghost-button full">退出登录</button>
       </div>
-    </header>
+    </aside>
 
-    <!-- 状态总览 -->
-    <section class="hero-grid">
-      <article class="glass hero-card">
-        <p class="eyebrow">Overview</p>
-        <h1>今日续火状态</h1>
-        <p class="hero-copy">配置与 Cookie 直接写入项目 <code class="inline">.env</code>，定时任务与一键执行共用同一套设置。</p>
-        <div class="pill-row">
-          <div class="status-pill">
-            <span class="dot" id="dot-cookie"></span>
-            <div>
-              <small>Cookie</small>
-              <strong id="stat-cookie">—</strong>
-            </div>
-          </div>
-          <div class="status-pill">
-            <span class="dot soft"></span>
-            <div>
-              <small>续火好友</small>
-              <strong id="stat-targets">—</strong>
-            </div>
-          </div>
-          <div class="status-pill">
-            <span class="dot" id="dot-last"></span>
-            <div>
-              <small>上次运行</small>
-              <strong id="stat-last">—</strong>
-            </div>
-          </div>
+    <div class="main-wrap">
+      <header class="main-top">
+        <div>
+          <p class="eyebrow" id="page-kicker">Overview</p>
+          <h1 id="page-title">总览</h1>
         </div>
-      </article>
-
-      <article class="glass side-card">
-        <p class="preview-label">Schedule</p>
-        <h2 class="cron-spec" id="cron-spec">—</h2>
-        <p class="note" id="cookie-detail">读取中…</p>
-        <div class="mini-legend">
-          <span><i class="lg ok"></i>正常</span>
-          <span><i class="lg warn"></i>将过期</span>
-          <span><i class="lg err"></i>失效</span>
+        <div class="top-meta">
+          <span class="meta-chip"><i id="dot-cookie" class="dot"></i><b id="stat-cookie">—</b></span>
+          <span class="meta-chip"><i id="dot-last" class="dot soft"></i><b id="stat-last">—</b></span>
+          <span class="meta-chip mono" id="cron-spec">—</span>
         </div>
-      </article>
-    </section>
+      </header>
 
-    <div class="layout">
-      <div class="stack">
-        <!-- Cookie -->
-        <section class="glass section">
-          <div class="section-head">
+      <!-- 总览 -->
+      <section class="tab-panel active" data-panel="overview">
+        <div class="overview-grid">
+          <article class="glass card span-2">
+            <p class="eyebrow">Status</p>
+            <h2>运行概览</h2>
+            <p class="card-desc" id="cookie-detail">读取中…</p>
+            <div class="stat-cards">
+              <div class="stat-card">
+                <small>Cookie</small>
+                <strong id="ov-cookie">—</strong>
+              </div>
+              <div class="stat-card">
+                <small>已选好友</small>
+                <strong id="stat-targets">—</strong>
+              </div>
+              <div class="stat-card">
+                <small>定时</small>
+                <strong id="ov-cron" class="mono">—</strong>
+              </div>
+              <div class="stat-card">
+                <small>上次运行</small>
+                <strong id="ov-last">—</strong>
+              </div>
+            </div>
+          </article>
+
+          <article class="glass card">
+            <p class="eyebrow">Quick</p>
+            <h2>快捷操作</h2>
+            <div class="quick-actions">
+              <button type="button" class="quick-btn" data-go="friends">管理好友选中</button>
+              <button type="button" class="quick-btn" data-go="cookie">更新 Cookie</button>
+              <button type="button" class="quick-btn" data-go="logs">查看运行日志</button>
+              <button type="button" class="quick-btn" data-go="notify">飞书通知</button>
+            </div>
+          </article>
+
+          <article class="glass card span-2">
+            <div class="card-head">
+              <div>
+                <p class="eyebrow">Recent</p>
+                <h2>最近运行</h2>
+              </div>
+              <button type="button" class="ghost-button" data-go="logs">全部日志</button>
+            </div>
+            <div id="runs-overview" class="runs"></div>
+          </article>
+        </div>
+      </section>
+
+      <!-- 好友 -->
+      <section class="tab-panel" data-panel="friends">
+        <div class="friends-layout">
+          <article class="glass card">
+            <div class="card-head">
+              <div>
+                <p class="eyebrow">Targets</p>
+                <h2>续火好友</h2>
+                <p class="card-desc">勾选表示参与续火；取消勾选不会删除，仅下次不发送。</p>
+              </div>
+              <div class="side-actions">
+                <button type="button" id="friend-select-all" class="ghost-button">全选</button>
+                <button type="button" id="friend-select-none" class="ghost-button">全不选</button>
+                <button type="button" id="friend-remove-checked" class="ghost-button danger">删除勾选</button>
+                <button type="button" id="save-friends" class="primary-button">保存选中</button>
+              </div>
+            </div>
+
+            <div class="friend-toolbar">
+              <div class="add-row">
+                <input id="friend-input" type="text" placeholder="输入昵称或抖音号后回车添加" />
+                <button type="button" id="friend-add" class="primary-button">添加</button>
+              </div>
+              <input id="friend-filter" type="search" placeholder="筛选好友…" />
+            </div>
+
+            <div class="friend-summary">
+              <span>共 <b id="friend-total">0</b> 人</span>
+              <span>已选 <b id="friend-selected">0</b> 人</span>
+              <span class="hint">匹配模式见「配置」页</span>
+            </div>
+
+            <div id="friend-list" class="friend-list"></div>
+            <p id="friend-empty" class="empty">还没有好友，在上方添加后勾选即可。</p>
+          </article>
+
+          <article class="glass card side-help">
+            <p class="eyebrow">Account</p>
+            <h2>账号信息</h2>
+            <label class="field">
+              <span>用户名</span>
+              <input id="acc-username" type="text" placeholder="仅用于标识" />
+            </label>
+            <label class="field">
+              <span>unique_id</span>
+              <input id="acc-unique-id" type="text" placeholder="决定 COOKIES_ 变量名" />
+            </label>
+            <p class="note">保存好友时会一并写入账号字段。Cookie 变量名随 unique_id 变化，改名后请重新写入 Cookie。</p>
+            <div class="help-box">
+              <strong>怎么用</strong>
+              <ol>
+                <li>添加好友昵称或抖音号</li>
+                <li>勾选需要续火的对象</li>
+                <li>点「保存选中」写入配置</li>
+                <li>可「立即执行」验证</li>
+              </ol>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- Cookie -->
+      <section class="tab-panel" data-panel="cookie">
+        <article class="glass card">
+          <div class="card-head">
             <div>
               <p class="eyebrow">Auth</p>
-              <h3>更新 Cookie</h3>
-              <p>本机登录抖音后，用 Cookie-Editor 导出 JSON</p>
+              <h2>更新 Cookie</h2>
+              <p class="card-desc">本机登录抖音后，用 Cookie-Editor 导出 JSON</p>
             </div>
             <button id="import-cookies" class="primary-button">写入 Cookie</button>
           </div>
           <label class="field">
             <span>Cookie JSON</span>
-            <textarea id="cookie-paste" rows="9" placeholder='[{"name":"sessionid","value":"...","domain":".douyin.com"}, ...]'></textarea>
+            <textarea id="cookie-paste" rows="14" placeholder='[{"name":"sessionid","value":"...","domain":".douyin.com"}, ...]'></textarea>
           </label>
           <div class="steps">
             <div class="step"><b>1</b><span>打开 douyin.com 并登录</span></div>
             <div class="step"><b>2</b><span>Cookie-Editor → Export → JSON</span></div>
             <div class="step"><b>3</b><span>粘贴后点写入</span></div>
           </div>
-        </section>
+        </article>
+      </section>
 
-        <!-- 飞书 -->
-        <section class="glass section">
-          <div class="section-head">
-            <div>
-              <p class="eyebrow">Notify</p>
-              <h3>飞书通知</h3>
-              <p>运行结束后推送结果卡片</p>
-            </div>
-            <div class="side-actions">
-              <button id="save-notify" class="primary-button">保存</button>
-              <button id="test-notify" class="ghost-button">发送测试</button>
-            </div>
-          </div>
-          <label class="field">
-            <span>Webhook URL</span>
-            <input id="feishu-webhook" type="url" placeholder="https://open.feishu.cn/open-apis/bot/v2/hook/..." />
-          </label>
-          <p class="note">定时任务与「立即执行」结束后自动推送；留空则关闭通知。</p>
-        </section>
-
-        <!-- 基础配置 -->
-        <section class="glass section">
-          <div class="section-head">
+      <!-- 配置 -->
+      <section class="tab-panel" data-panel="config">
+        <article class="glass card">
+          <div class="card-head">
             <div>
               <p class="eyebrow">Config</p>
-              <h3>基础配置</h3>
-              <p>保存后写入 .env，下次任务生效</p>
+              <h2>基础配置</h2>
+              <p class="card-desc">保存后写入 .env，下次任务生效</p>
             </div>
             <button id="save-config" class="primary-button">保存配置</button>
           </div>
@@ -181,44 +265,50 @@
             <span>一言类型</span>
             <div id="hitokoto-options" class="choice-grid"></div>
           </div>
-        </section>
+        </article>
+      </section>
 
-        <!-- 账号 -->
-        <section class="glass section">
-          <div class="section-head">
+      <!-- 通知 -->
+      <section class="tab-panel" data-panel="notify">
+        <article class="glass card">
+          <div class="card-head">
             <div>
-              <p class="eyebrow">Targets</p>
-              <h3>账号与续火好友</h3>
-              <p>每行一个昵称或抖音号</p>
+              <p class="eyebrow">Notify</p>
+              <h2>飞书通知</h2>
+              <p class="card-desc">运行结束后推送结果卡片</p>
+            </div>
+            <div class="side-actions">
+              <button id="save-notify" class="primary-button">保存</button>
+              <button id="test-notify" class="ghost-button">发送测试</button>
             </div>
           </div>
-          <div id="accounts"></div>
-        </section>
-      </div>
+          <label class="field">
+            <span>Webhook URL</span>
+            <input id="feishu-webhook" type="url" placeholder="https://open.feishu.cn/open-apis/bot/v2/hook/..." />
+          </label>
+          <p class="note">定时任务与「立即执行」结束后自动推送；留空则关闭通知。</p>
+        </article>
+      </section>
 
       <!-- 日志 -->
-      <aside class="glass section output-panel">
-        <div class="section-head">
-          <div>
-            <p class="eyebrow">Runtime</p>
-            <h3>运行日志</h3>
-            <p>近期执行记录</p>
+      <section class="tab-panel" data-panel="logs">
+        <article class="glass card">
+          <div class="card-head">
+            <div>
+              <p class="eyebrow">Runtime</p>
+              <h2>运行日志</h2>
+              <p class="card-desc">近期执行记录与详细输出</p>
+            </div>
+            <button id="refresh-logs" class="ghost-button">刷新</button>
           </div>
-          <button id="refresh-logs" class="ghost-button">刷新</button>
-        </div>
-        <div id="runs" class="runs"></div>
-        <div id="log-blocks" class="log-blocks"></div>
-      </aside>
+          <div id="runs" class="runs"></div>
+          <div id="log-blocks" class="log-blocks"></div>
+        </article>
+      </section>
     </div>
-
-    <footer class="foot">
-      <span>DouyinSparkPanel</span>
-      <span class="sep">·</span>
-      <span>DouYinSparkFlow 二开</span>
-    </footer>
-  </main>
+  </div>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="./app.js?v=10"></script>
+  <script type="module" src="./app.js?v=20"></script>
 </body>
 </html>
