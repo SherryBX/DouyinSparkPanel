@@ -351,19 +351,22 @@ function renderStats() {
   const modeTag = $('#ov-mode-tag');
   if (modeTag) modeTag.textContent = `匹配 ${settings.matchMode === 'nickname' ? '昵称' : (settings.matchMode || '—')}`;
 
-  // health ring
+  // health ring — short labels so they fit inside the circle
   const ring = $('#ov-health-ring');
   const healthText = $('#ov-health-text');
+  const healthCaption = $('#ov-health-caption');
   if (ring && healthText) {
     let state = 'unknown';
     let text = '待配置';
-    if (!health.has_sessionid) { state = 'err'; text = 'Cookie 失效'; }
-    else if (health.days_left != null && health.days_left < 0) { state = 'err'; text = '已过期'; }
-    else if (health.days_left != null && health.days_left < 7) { state = 'warn'; text = '即将过期'; }
-    else if (!selected) { state = 'warn'; text = '未选好友'; }
-    else { state = 'ok'; text = '运行就绪'; }
+    let caption = '系统状态';
+    if (!health.has_sessionid) { state = 'err'; text = '失效'; caption = 'Cookie 无效'; }
+    else if (health.days_left != null && health.days_left < 0) { state = 'err'; text = '过期'; caption = '请更新 Cookie'; }
+    else if (health.days_left != null && health.days_left < 7) { state = 'warn'; text = '将过期'; caption = `剩余 ${health.days_left} 天`; }
+    else if (!selected) { state = 'warn'; text = '未选'; caption = '请勾选好友'; }
+    else { state = 'ok'; text = '就绪'; caption = '可以运行'; }
     ring.dataset.state = state;
     healthText.textContent = text;
+    if (healthCaption) healthCaption.textContent = caption;
   }
 }
 
