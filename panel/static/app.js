@@ -286,6 +286,7 @@ $('#save-friends').addEventListener('click', saveFriends);
 function renderStats() {
   const account = currentAccount();
   const health = account.cookies || {};
+  const settings = state.settings || {};
   const cookieEl = $('#stat-cookie');
   const ovCookie = $('#ov-cookie');
   const setDot = (el, kind) => { if (el) el.className = `dot ${kind || ''}`.trim(); };
@@ -293,16 +294,20 @@ function renderStats() {
   let cookieText = '—';
   let cookieKind = 'soft';
   let cookieColor = 'var(--text)';
+  let cookiePct = 0;
+  let meterClass = '';
   if (!health.has_sessionid) {
-    cookieText = '失效'; cookieKind = 'err'; cookieColor = 'var(--danger)';
+    cookieText = '失效'; cookieKind = 'err'; cookieColor = 'var(--danger)'; cookiePct = 8; meterClass = 'err';
   } else if (health.days_left != null && health.days_left < 0) {
-    cookieText = '已过期'; cookieKind = 'err'; cookieColor = 'var(--danger)';
+    cookieText = '已过期'; cookieKind = 'err'; cookieColor = 'var(--danger)'; cookiePct = 12; meterClass = 'err';
   } else if (health.days_left != null && health.days_left < 7) {
     cookieText = `剩 ${health.days_left} 天`; cookieKind = 'warn'; cookieColor = 'var(--warn)';
+    cookiePct = Math.max(15, Math.min(90, (health.days_left / 60) * 100)); meterClass = 'warn';
   } else if (health.days_left != null) {
     cookieText = `剩 ${health.days_left} 天`; cookieKind = 'ok'; cookieColor = 'var(--accent)';
+    cookiePct = Math.max(20, Math.min(100, (health.days_left / 60) * 100));
   } else {
-    cookieText = '正常'; cookieKind = 'ok'; cookieColor = 'var(--accent)';
+    cookieText = '正常'; cookieKind = 'ok'; cookieColor = 'var(--accent)'; cookiePct = 80;
   }
 
   cookieEl.textContent = cookieText;
@@ -312,13 +317,54 @@ function renderStats() {
   setDot($('#dot-cookie'), cookieKind);
 
   const selected = selectedNames().length || (account.targets || []).length;
+  const totalFriends = friends.length || selected;
   $('#stat-targets').textContent = String(selected);
   $('#nav-friend-count').textContent = String(selected);
+  const friendSub = $('#ov-friend-sub');
+  if (friendSub) friendSub.textContent = totalFriends ? `已勾选 ${selected} / 共 ${totalFriends}` : '尚未添加好友';
+  const friendMeter = $('#ov-friend-meter');
+  if (friendMeter) {
+    const pct = totalFriends ? Math.round((selected / totalFriends) * 100) : 0;
+    friendMeter.style.width = `${pct}%`;
+    friendMeter.parentElement.className = `meter ${selected ? '' : 'warn'}`.trim();
+  }
+  const cookieMeter = $('#ov-cookie-meter');
+  if (cookieMeter) {
+    cookieMeter.style.width = `${Math.round(cookiePct)}%`;
+    cookieMeter.parentElement.className = `meter ${meterClass}`.trim();
+  }
 
   const detail = [];
   if (health.count) detail.push(`${health.count} 条 Cookie`);
   if (health.expires_at) detail.push(`到期 ${new Date(health.expires_at * 1000).toLocaleString('zh-CN')}`);
-  $('#cookie-detail').textContent = detail.join(' · ') || '尚未配置 Cookie';
+  $('#cookie-detail').textContent = detail.join(' · ') || '配置 Cookie 与好友后，可一键执行或等待定时任务';
+  const cookieSub = $('#ov-cookie-sub');
+  if (cookieSub) cookieSub.textContent = detail[0] || '会话有效期';
+
+  const hour = new Date().getHours();
+  const hello = hour < 6 ? '夜深了' : hour < 12 ? '上午好' : hour < 18 ? '下午好' : '晚上好';
+  const greet = $('#ov-greeting');
+  if (greet) greet.textContent = `${hello}，续火看板`;
+
+  const accTag = $('#ov-account-tag');
+  if (accTag) accTag.textContent = `账号 ${account.username || '—'}`;
+  const modeTag = $('#ov-mode-tag');
+  if (modeTag) modeTag.textContent = `匹配 ${settings.matchMode === 'nickname' ? '昵称' : (settings.matchMode || '—')}`;
+
+  // health ring
+  const ring = $('#ov-health-ring');
+  const healthText = $('#ov-health-text');
+  if (ring && healthText) {
+    let state = 'unknown';
+    let text = '待配置';
+    if (!health.has_sessionid) { state = 'err'; text = 'Cookie 失效'; }
+    else if (health.days_left != null && health.days_left < 0) { state = 'err'; text = '已过期'; }
+    else if (health.days_left != null && health.days_left < 7) { state = 'warn'; text = '即将过期'; }
+    else if (!selected) { state = 'warn'; text = '未选好友'; }
+    else { state = 'ok'; text = '运行就绪'; }
+    ring.dataset.state = state;
+    healthText.textContent = text;
+  }
 }
 
 async function loadConfig() {
@@ -404,6 +450,8 @@ $('#import-cookies').addEventListener('click', async () => {
 async function loadNotify() {
   const data = await api('/api/notify');
   $('#feishu-webhook').value = data.feishu_webhook || '';
+  const tag = $('#ov-notify-tag');
+  if (tag) tag.textContent = data.feishu_webhook ? '通知 已开启' : '通知 未配置';
 }
 
 $('#save-notify').addEventListener('click', async () => {
@@ -461,6 +509,16 @@ async function loadRuns() {
   const schedule = data.schedule || '未配置';
   $('#cron-spec').textContent = schedule;
   $('#ov-cron').textContent = schedule;
+  const cronSub = $('#ov-cron-sub');
+  if (cronSub) {
+    // very light parse of "30 8 * * *"
+    const parts = String(schedule).trim().split(/\s+/);
+    if (parts.length >= 2 && /^\d+$/.test(parts[0]) && /^\d+$/.test(parts[1])) {
+      cronSub.textContent = `每天 ${parts[1].padStart(2, '0')}:${parts[0].padStart(2, '0')}`;
+    } else {
+      cronSub.textContent = 'cron 表达式';
+    }
+  }
 
   const runs = data.runs || [];
   const lastOk = runs.length ? runs[0].status === 'Success' : null;
@@ -471,9 +529,53 @@ async function loadRuns() {
   $('#ov-last').style.color = lastOk === false ? 'var(--danger)' : 'var(--accent)';
   const dotLast = $('#dot-last');
   if (dotLast) dotLast.className = `dot ${lastOk === false ? 'err' : (lastOk ? 'ok' : 'soft')}`;
+  const lastSub = $('#ov-last-sub');
+  if (lastSub) {
+    if (!runs.length) lastSub.textContent = '尚无记录';
+    else {
+      const when = String(runs[0].start_time).replace('T', ' ').slice(5, 16);
+      lastSub.textContent = `${when} · ${runs[0].duration_s || 0}s`;
+    }
+  }
 
   renderRunRows('#runs', runs);
-  renderRunRows('#runs-overview', runs.slice(0, 4));
+  renderRunRows('#runs-overview', runs.slice(0, 5));
+  renderRunPulse(runs.slice(0, 7));
+}
+
+function renderRunPulse(runs) {
+  const host = $('#run-pulse');
+  if (!host) return;
+  const items = [...runs].reverse(); // old -> new
+  if (!items.length) {
+    host.innerHTML = '<p class="empty">暂无运行数据</p>';
+    $('#ov-success-rate').textContent = '—';
+    $('#ov-avg-duration').textContent = '—';
+    $('#ov-streak').textContent = '—';
+    return;
+  }
+  const maxDur = Math.max(...items.map((r) => Number(r.duration_s) || 1), 1);
+  host.innerHTML = items.map((run) => {
+    const ok = run.status === 'Success';
+    const dur = Number(run.duration_s) || 0;
+    const h = Math.max(18, Math.round((dur / maxDur) * 78));
+    const label = String(run.start_time).replace('T', ' ').slice(5, 10);
+    return `<div class="pulse-bar ${ok ? '' : 'fail'}">
+      <div class="bar" style="height:${h}px"><i style="height:100%"></i></div>
+      <div class="label">${escapeHtml(label)}</div>
+    </div>`;
+  }).join('');
+
+  const success = items.filter((r) => r.status === 'Success').length;
+  const avg = items.reduce((s, r) => s + (Number(r.duration_s) || 0), 0) / items.length;
+  let streak = 0;
+  for (const r of runs) { // newest first
+    if (r.status === 'Success') streak += 1;
+    else break;
+  }
+  $('#ov-success-rate').textContent = `${Math.round((success / items.length) * 100)}%`;
+  $('#ov-avg-duration').textContent = `${avg.toFixed(1)}s`;
+  $('#ov-streak').textContent = `${streak} 次`;
 }
 
 async function loadLogs() {

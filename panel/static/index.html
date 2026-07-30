@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css?v=20" />
+  <link rel="stylesheet" href="./styles.css?v=21" />
 </head>
 <body>
   <div class="bg-orbs" aria-hidden="true">
@@ -86,48 +86,76 @@
       <!-- 总览 -->
       <section class="tab-panel active" data-panel="overview">
         <div class="overview-grid">
-          <article class="glass card span-2">
-            <p class="eyebrow">Status</p>
-            <h2>运行概览</h2>
-            <p class="card-desc" id="cookie-detail">读取中…</p>
-            <div class="stat-cards">
-              <div class="stat-card">
-                <small>Cookie</small>
-                <strong id="ov-cookie">—</strong>
+          <article class="glass card hero-banner span-all">
+            <div class="hero-banner-main">
+              <p class="eyebrow">Dashboard</p>
+              <h2 id="ov-greeting">续火控制台</h2>
+              <p class="card-desc" id="cookie-detail">读取中…</p>
+              <div class="hero-tags">
+                <span class="tag" id="ov-account-tag">账号 —</span>
+                <span class="tag" id="ov-mode-tag">匹配 —</span>
+                <span class="tag" id="ov-notify-tag">通知 —</span>
               </div>
-              <div class="stat-card">
-                <small>已选好友</small>
-                <strong id="stat-targets">—</strong>
-              </div>
-              <div class="stat-card">
-                <small>定时</small>
-                <strong id="ov-cron" class="mono">—</strong>
-              </div>
-              <div class="stat-card">
-                <small>上次运行</small>
-                <strong id="ov-last">—</strong>
+            </div>
+            <div class="hero-banner-side">
+              <div class="ring" id="ov-health-ring" data-state="unknown">
+                <strong id="ov-health-text">—</strong>
+                <small>系统状态</small>
               </div>
             </div>
           </article>
 
-          <article class="glass card">
-            <p class="eyebrow">Quick</p>
-            <h2>快捷操作</h2>
-            <div class="quick-actions">
-              <button type="button" class="quick-btn" data-go="friends">管理好友选中</button>
-              <button type="button" class="quick-btn" data-go="cookie">更新 Cookie</button>
-              <button type="button" class="quick-btn" data-go="logs">查看运行日志</button>
-              <button type="button" class="quick-btn" data-go="notify">飞书通知</button>
-            </div>
+          <article class="glass card metric">
+            <div class="metric-top"><span class="metric-ico">◍</span><small>Cookie</small></div>
+            <strong id="ov-cookie">—</strong>
+            <p class="metric-sub" id="ov-cookie-sub">会话有效期</p>
+            <div class="meter"><i id="ov-cookie-meter"></i></div>
+          </article>
+
+          <article class="glass card metric">
+            <div class="metric-top"><span class="metric-ico">◎</span><small>续火好友</small></div>
+            <strong id="stat-targets">—</strong>
+            <p class="metric-sub" id="ov-friend-sub">已勾选 / 全部</p>
+            <div class="meter"><i id="ov-friend-meter"></i></div>
+          </article>
+
+          <article class="glass card metric">
+            <div class="metric-top"><span class="metric-ico">⏱</span><small>定时任务</small></div>
+            <strong id="ov-cron" class="mono">—</strong>
+            <p class="metric-sub" id="ov-cron-sub">每天执行时间</p>
+          </article>
+
+          <article class="glass card metric">
+            <div class="metric-top"><span class="metric-ico">✦</span><small>上次运行</small></div>
+            <strong id="ov-last">—</strong>
+            <p class="metric-sub" id="ov-last-sub">尚无记录</p>
           </article>
 
           <article class="glass card span-2">
             <div class="card-head">
               <div>
-                <p class="eyebrow">Recent</p>
-                <h2>最近运行</h2>
+                <p class="eyebrow">Pulse</p>
+                <h2>近 7 次运行</h2>
               </div>
-              <button type="button" class="ghost-button" data-go="logs">全部日志</button>
+              <div class="pulse-legend">
+                <span><i class="lg ok"></i>成功</span>
+                <span><i class="lg err"></i>失败</span>
+              </div>
+            </div>
+            <div id="run-pulse" class="run-pulse"></div>
+            <div class="pulse-stats">
+              <div><small>成功率</small><b id="ov-success-rate">—</b></div>
+              <div><small>平均耗时</small><b id="ov-avg-duration">—</b></div>
+              <div><small>连续成功</small><b id="ov-streak">—</b></div>
+            </div>
+          </article>
+
+          <article class="glass card">
+            <div class="card-head">
+              <div>
+                <p class="eyebrow">Recent</p>
+                <h2>最近记录</h2>
+              </div>
             </div>
             <div id="runs-overview" class="runs"></div>
           </article>
@@ -309,6 +337,6 @@
   </div>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="./app.js?v=20"></script>
+  <script type="module" src="./app.js?v=21"></script>
 </body>
 </html>
